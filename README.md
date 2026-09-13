@@ -24,7 +24,8 @@
 7. [Key Architectural Decisions (ADRs)](#key-architectural-decisions-adrs)
 8. [Technology Stack](#technology-stack)
 9. [Quick Start & Local Setup](#quick-start--local-setup)
-10. [Automated Testing & Verification](#automated-testing--verification)
+10. [Production Deployment](#production-deployment)
+11. [Automated Testing & Verification](#automated-testing--verification)
 
 ---
 
@@ -401,6 +402,59 @@ uv run python manage.py runserver 8001
 
 * 🚀 **API Endpoint**: `http://127.0.0.1:8001/api/route/`
 * 🗺️ **Interactive Leaflet Map**: `http://127.0.0.1:8001/map/`
+
+---
+
+## Production Deployment
+
+The project is production-ready with environment variable configuration, WhiteNoise static compression, and pre-seeded SQLite container builds.
+
+### Option 1: Render.com (Recommended Free Hosting)
+
+1. Push your repository to GitHub.
+2. Log into [Render Dashboard](https://dashboard.render.com/) and click **New +** → **Web Service**.
+3. Connect your repository.
+4. Set the following build and runtime settings:
+   - **Environment**: `Python 3`
+   - **Build Command**: `./build.sh` (or `pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate && python manage.py load_fuel_data`)
+   - **Start Command**: `uvicorn spotter_fuel.asgi:application --host 0.0.0.0 --port $PORT`
+5. Configure Environment Variables:
+   - `DEBUG`: `False`
+   - `SECRET_KEY`: `<generate-a-random-secret-key>`
+   - `ALLOWED_HOSTS`: `*` (or your `.onrender.com` domain)
+6. Click **Deploy Web Service**.
+
+---
+
+### Option 2: Railway.app
+
+1. Click **New Project** → **Deploy from GitHub repo** in [Railway](https://railway.app/).
+2. Railway detects the `Procfile` and `requirements.txt` automatically.
+3. Add an Environment Variable:
+   - `PORT`: `8000`
+   - `DEBUG`: `False`
+4. Railway builds and deploys your service with an automatic public HTTPS domain.
+
+---
+
+### Option 3: Docker (Universal / GCP Cloud Run / Fly.io / VPS)
+
+The included multi-stage `Dockerfile` pre-seeds `db.sqlite3` with all 7,531 stations during image build for sub-second container cold-starts:
+
+```bash
+# 1. Build the Docker container image
+docker build -t spotter-backend .
+
+# 2. Run container on port 8000
+docker run -d -p 8000:8000 -e DEBUG=False -e SECRET_KEY="prod-secret-key" --name spotter spotter-backend
+```
+
+Test the containerized deployment:
+```bash
+curl -X POST http://127.0.0.1:8000/api/route/ \
+  -H "Content-Type: application/json" \
+  -d '{"start": "Austin, TX", "finish": "Seattle, WA"}'
+```
 
 ---
 
