@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotter — Optimal Fuel Route Planner</title>
+    <meta name="description" content="Calculate optimal driving routes and cost-effective fuel stops across the United States with real-time fuel price optimization.">
+    <!-- Open Graph tags for SEO -->
+    <meta property="og:title" content="Spotter — Optimal Fuel Route Planner">
+    <meta property="og:description" content="High performance route planning and fuel cost optimization across the USA.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="http://localhost:8000/map/">
+    <!-- Google Fonts Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --card-border: #334155;
+            --primary: #2563eb;
+            --primary-gradient: linear-gradient(135deg, #0284c7 0%, #0d9488 100%);
+            --accent-green: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-red: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.5;
+        }
+
+        header {
+            background: #0f172a;
+            border-bottom: 1px solid var(--card-border);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .brand-badge {
+            background: var(--primary-gradient);
+            color: white;
+            font-weight: 800;
+            padding: 0.35rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            letter-spacing: 0.05em;
+        }
+
+        .brand-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--text-main);
+            line-height: 1.2;
+        }
+
+        .api-link-btn {
+            background: rgba(37, 99, 235, 0.15);
+            border: 1px solid var(--primary);
+            color: #60a5fa;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+
+        .api-link-btn:hover {
+            opacity: 0.9;
+        }
+
+        .main-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            height: calc(100vh - 72px);
+            overflow: hidden;
+        }
+
+        .sidebar {
+            background: var(--card-bg);
+            border-right: 1px solid var(--card-border);
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .search-card {
+            background: #0f172a;
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+
+        .form-group {
+            margin-bottom: 0.85rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 0.35rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.65rem 0.85rem;
+            background: #1e293b;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--primary-gradient);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 800;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn-submit:hover {
+            opacity: 0.92;
+        }
+
+        .presets-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.75rem;
+        }
+
+        .preset-btn {
+            background: #334155;
+            color: #cbd5e1;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 12px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+
+        .preset-btn:hover {
+            background: #0284c7;
+            color: white;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .kpi-card {
+            background: #0f172a;
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 0.85rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .kpi-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .kpi-value {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin-top: 0.25rem;
+            line-height: 1.2;
+        }
+
+        .kpi-value.green { color: var(--accent-green); }
+        .kpi-value.blue { color: #38bdf8; }
+        .kpi-value.amber { color: var(--accent-amber); }
+
+        .timeline-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .section-header {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            line-height: 1.2;
+        }
+
+        .timeline-card {
+            background: #0f172a;
+            border: 1px solid var(--card-border);
+            border-left: 4px solid var(--accent-amber);
+            border-radius: 8px;
+            padding: 0.85rem;
+        }
+
+        .stop-badge {
+            display: inline-block;
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--accent-amber);
+            font-size: 0.75rem;
+            font-weight: 800;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 0.35rem;
+        }
+
+        .stop-name {
+            font-weight: 800;
+            font-size: 0.95rem;
+            color: white;
+            line-height: 1.3;
+        }
+
+        .stop-loc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .stop-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.82rem;
+            background: rgba(0,0,0,0.3);
+            padding: 0.4rem 0.6rem;
+            border-radius: 6px;
+        }
+
+        .stop-stats-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stop-stats-val {
+            font-weight: 800;
+            color: #f1f5f9;
+        }
+
+        .stop-stats-lbl {
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+
+        #map-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .error-banner {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid var(--accent-red);
+            color: #fca5a5;
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+
+        /* Custom Leaflet Markers */
+        .custom-div-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            color: white;
+            font-weight: 800;
+            font-size: 11px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            border: 2px solid white;
+        }
+        .start-marker { background: #16a34a; }
+        .finish-marker { background: #dc2626; }
+        .stop-marker { background: #d97706; }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                transition: none !important;
+                animation: none !important;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 500px;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand">
+            <span class="brand-badge">SPOTTER</span>
+            <h1 class="brand-title">Optimal Fuel Route Planner</h1>
+        </div>
+        <nav>
+            <a href="/api/route/?start={{ start|urlencode }}&finish={{ finish|urlencode }}" target="_blank" rel="noopener noreferrer" class="api-link-btn">
+                ⚡ View Raw JSON API
+            </a>
+        </nav>
+    </header>
+
+    <main class="main-container">
+        <!-- Sidebar Controls & Summary -->
+        <aside class="sidebar">
+            <!-- Search Form -->
+            <section class="search-card">
+                <form method="GET" action="/map/" id="routeForm">
+                    <div class="form-group">
+                        <label for="start">Start Location (USA)</label>
+                        <input type="text" id="start" name="start" class="form-input" value="{{ start }}" required placeholder="e.g. Austin, TX or lat,lon">
+                    </div>
+                    <div class="form-group">
+                        <label for="finish">Finish Location (USA)</label>
+                        <input type="text" id="finish" name="finish" class="form-input" value="{{ finish }}" required placeholder="e.g. Seattle, WA or lat,lon">
+                    </div>
+                    <button type="submit" class="btn-submit">Calculate Optimal Route</button>
+                </form>
+
+                <div class="presets-row">
+                    <span style="font-size: 0.72rem; color: #64748b; width: 100%;">Quick Presets:</span>
+                    <button type="button" class="preset-btn" onclick="applyPreset('Austin, TX', 'Seattle, WA')">Austin → Seattle</button>
+                    <button type="button" class="preset-btn" onclick="applyPreset('New York, NY', 'Los Angeles, CA')">NYC → LA</button>
+                    <button type="button" class="preset-btn" onclick="applyPreset('Chicago, IL', 'Miami, FL')">Chicago → Miami</button>
+                    <button type="button" class="preset-btn" onclick="applyPreset('Dallas, TX', 'Denver, CO')">Dallas → Denver</button>
+                </div>
+            </section>
+
+            {% if error_message %}
+                <div class="error-banner">
+                    <strong>Routing Error:</strong> {{ error_message }}
+                </div>
+            {% endif %}
+
+            {% if plan %}
+                <!-- KPI Dashboard Cards -->
+                <section class="kpi-grid">
+                    <div class="kpi-card">
+                        <span class="kpi-label">Total Distance</span>
+                        <span class="kpi-value blue">{{ plan.summary.total_distance_miles|floatformat:1 }} <span style="font-size: 0.9rem; font-weight: normal; color: #94a3b8;">mi</span></span>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-label">Total Fuel Cost</span>
+                        <span class="kpi-value green">${{ plan.summary.total_fuel_cost_usd|floatformat:2 }}</span>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-label">Optimal Fuel Stops</span>
+                        <span class="kpi-value amber">{{ plan.summary.stops_count }} <span style="font-size: 0.9rem; font-weight: normal; color: #94a3b8;">stops</span></span>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-label">Fuel Consumed</span>
+                        <span class="kpi-value">{{ plan.summary.total_gallons_consumed|floatformat:1 }} <span style="font-size: 0.9rem; font-weight: normal; color: #94a3b8;">gal</span></span>
+                    </div>
+                </section>
+
+                <div style="font-size: 0.78rem; color: #64748b; display: flex; justify-content: space-between; padding: 0 0.25rem;">
+                    <span>Vehicle Range: <strong>500 mi</strong> (10 MPG)</span>
+                    <span>Computed in: <strong>{{ plan.execution_time_ms }} ms</strong></span>
+                </div>
+
+                <!-- Stop Itinerary -->
+                <section class="timeline-container">
+                    <div class="section-header">
+                        <h2>Planned Fuel Stops</h2>
+                        <span style="font-size: 0.75rem; color: #94a3b8;">Cheapest on corridor</span>
+                    </div>
+
+                    {% if plan.fuel_stops %}
+                        {% for stop in plan.fuel_stops %}
+                            <article class="timeline-card">
+                                <span class="stop-badge">STOP #{{ stop.stop_number }} • MILE {{ stop.route_mile_marker|floatformat:1 }}</span>
+                                <div class="stop-name">{{ stop.name }}</div>
+                                <div class="stop-loc">{{ stop.address }}, {{ stop.city }}, {{ stop.state }}</div>
+                                <div class="stop-stats">
+                                    <div class="stop-stats-item">
+                                        <span class="stop-stats-lbl">PRICE</span>
+                                        <span class="stop-stats-val">${{ stop.price_per_gallon|floatformat:3 }}/gal</span>
+                                    </div>
+                                    <div class="stop-stats-item">
+                                        <span class="stop-stats-lbl">PUMPED</span>
+                                        <span class="stop-stats-val">{{ stop.gallons_pumped|floatformat:1 }} gal</span>
+                                    </div>
+                                    <div class="stop-stats-item">
+                                        <span class="stop-stats-lbl">COST</span>
+                                        <span class="stop-stats-val" style="color: #34d399;">${{ stop.cost_usd|floatformat:2 }}</span>
+                                    </div>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    {% else %}
+                        <div style="padding: 1rem; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--accent-green); border-radius: 8px; font-size: 0.85rem; color: #a7f3d0;">
+                            ✨ {{ plan.summary.note }}
+                        </div>
+                    {% endif %}
+                </section>
+            {% endif %}
+        </aside>
+
+        <!-- Interactive Map Container -->
+        <div id="map-container"></div>
+    </main>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+        function applyPreset(start, finish) {
+            document.getElementById('start').value = start;
+            document.getElementById('finish').value = finish;
+            document.getElementById('routeForm').submit();
+        }
+
+        const planData = {{ plan_json|safe }};
+
+        // Initialize Leaflet map
+        const map = L.map('map-container').setView([39.8283, -98.5795], 4);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+        if (planData && planData.geojson && planData.geojson.features) {
+            const geojson = planData.geojson;
+            const bounds = [];
+
+            geojson.features.forEach(feature => {
+                if (feature.geometry.type === 'LineString') {
+                    const latlngs = feature.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                    const polyline = L.polyline(latlngs, {
+                        color: '#0284c7',
+                        weight: 5,
+                        opacity: 0.9,
+                        smoothFactor: 1
+                    }).addTo(map);
+
+                    polyline.bindPopup(`
+                        <div style="font-family: sans-serif; font-size: 13px;">
+                            <strong>Route Summary</strong><br>
+                            Distance: ${planData.summary.total_distance_miles.toFixed(1)} miles<br>
+                            Duration: ${(planData.summary.duration_minutes / 60).toFixed(1)} hours<br>
+                            Total Fuel Cost: $${planData.summary.total_fuel_cost_usd.toFixed(2)}
+                        </div>
+                    `);
+
+                    latlngs.forEach(pt => bounds.push(pt));
+                } else if (feature.geometry.type === 'Point') {
+                    const [lon, lat] = feature.geometry.coordinates;
+                    bounds.push([lat, lon]);
+
+                    const role = feature.properties.role;
+                    let iconClass = 'stop-marker';
+                    let markerText = '⛽';
+
+                    if (role === 'start_point') {
+                        iconClass = 'start-marker';
+                        markerText = 'A';
+                    } else if (role === 'finish_point') {
+                        iconClass = 'finish-marker';
+                        markerText = 'B';
+                    } else if (role === 'fuel_stop') {
+                        iconClass = 'stop-marker';
+                        markerText = feature.properties.stop_number;
+                    }
+
+                    const customIcon = L.divIcon({
+                        className: `custom-div-icon ${iconClass}`,
+                        html: `<span>${markerText}</span>`,
+                        iconSize: [28, 28],
+                        iconAnchor: [14, 14],
+                        popupAnchor: [0, -14]
+                    });
+
+                    const marker = L.marker([lat, lon], { icon: customIcon }).addTo(map);
+                    marker.bindPopup(`
+                        <div style="font-family: sans-serif; font-size: 13px; min-width: 180px;">
+                            ${feature.properties.popup}
+                        </div>
+                    `);
+                }
+            });
+
+            if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [40, 40] });
+            }
+        }
+    </script>
+</body>
+</html>
