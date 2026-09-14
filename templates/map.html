@@ -14,6 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <style>
@@ -469,11 +470,37 @@
         // Initialize Leaflet map
         const map = L.map('map-container').setView([39.8283, -98.5795], 4);
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
-            subdomains: 'abcd',
-            maxZoom: 19
-        }).addTo(map);
+        // Base tile layers (100% free, zero API keys required, no 403 volunteer blocks, no watermarks)
+        const esriStreet = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, METI, TomTom'
+        });
+
+        const esriTopo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, TomTom, USGS, NPS, NRCAN'
+        });
+
+        const esriGray = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 16,
+            attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
+        });
+
+        const osmStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
+        });
+
+        // Add default high-reliability tile layer
+        esriStreet.addTo(map);
+
+        // Basemap switcher control
+        L.control.layers({
+            "Streets (Default)": esriStreet,
+            "Topographic": esriTopo,
+            "Minimal Light": esriGray,
+            "OpenStreetMap": osmStandard
+        }, null, { position: 'topright' }).addTo(map);
 
         if (planData && planData.geojson && planData.geojson.features) {
             const geojson = planData.geojson;
