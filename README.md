@@ -123,12 +123,21 @@ sequenceDiagram
     View-->>Client: 200 OK (JSON Summary, Fuel Stops, GeoJSON FeatureCollection)
 ```
 
-### OSRM Engine Details (`osrm_client.py`)
+### OSRM Engine & Client Details (`osrm_client.py`)
+
+- **What is OSRM (Open Source Routing Machine)?**
+  OSRM is a high-performance C++ routing engine running on OpenStreetMap (OSM) highway network data. It computes driving paths using Contraction Hierarchies in single-digit milliseconds. Unlike commercial APIs (Google Maps, Mapbox), Project OSRM provides a public API that is **100% free with zero required API keys or credit card billing**.
+- **What is the "OSRM Client"?**
+  The OSRM Client ([`fuel_api/services/osrm_client.py`](file:///c:/My%20Files/Personal%20Work/spotter-backend/fuel_api/services/osrm_client.py)) is the service wrapper that manages network communication with the OSRM engine. It handles URL coordinate formatting (`{lon},{lat}`), executes the HTTP request, standardizes error responses, and converts metric units (meters $\rightarrow$ statute miles, seconds $\rightarrow$ minutes).
+- **What is a "Polyline"?**
+  A polyline is an ordered sequence of geographic coordinates (`[[lon1, lat1], [lon2, lat2], ...]`) that traces the physical highway curves and turns of a drive (rather than a simple straight line). OSRM returns this as a GeoJSON `LineString` with 3,000+ coordinates for a coast-to-coast route. Our backend uses this polyline for two essential jobs:
+  1. Drawing the road route on the interactive Leaflet map.
+  2. Sampling probe points to query our `cKDTree` spatial index for candidate fuel stations within 5 miles of the road.
 - **Endpoint**: `https://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson&steps=false`
 - **Output Provided**:
   - Exact driving distance in meters (converted to statute miles via $0.000621371$).
   - Estimated travel duration in seconds.
-  - High-density GeoJSON LineString coordinate array covering every highway curve.
+  - High-density GeoJSON LineString polyline coordinate array covering every highway curve.
 - **Fail-Safe Offline Routing**: If the external OSRM public server encounters temporary network latency or downtime, the system transparently activates a mathematical fallback (`_calculate_fallback_route`) using Haversine distances with a $1.25$ highway curvature factor and interpolated 20-point segments. The API never returns a $500$ error.
 
 ---
@@ -394,6 +403,7 @@ uv run python manage.py load_fuel_data
 ```powershell
 uv run uvicorn spotter_fuel.asgi:application --host 127.0.0.1 --port 8001 --reload
 ```
+> **Note:** The Django configuration package is **`spotter_fuel`** (located at `spotter_fuel/asgi.py`). Do not use `config.asgi`. Also ensure no accidental trailing backslashes (`\`) are present at the end of the command in PowerShell.
 
 #### Option B: Run with Django Development Server
 ```powershell
@@ -407,9 +417,9 @@ uv run python manage.py runserver 8001
 
 ## Production Deployment
 
-The project is production-ready with environment variable configuration, WhiteNoise static compression, and pre-seeded SQLite container builds.
+The project is production-ready with environment variable configuration, WhiteNoise static compression, and pre-seeded SQLite database deployment on Render.
 
-### Option 1: Render.com (Recommended Free Hosting)
+### Render.com Deployment
 
 1. Push your repository to GitHub.
 2. Log into [Render Dashboard](https://dashboard.render.com/) and click **New +** → **Web Service**.
@@ -424,34 +434,9 @@ The project is production-ready with environment variable configuration, WhiteNo
    - `ALLOWED_HOSTS`: `*` (or your `.onrender.com` domain)
 6. Click **Deploy Web Service**.
 
----
-
-### Option 2: Railway.app
-
-1. Click **New Project** → **Deploy from GitHub repo** in [Railway](https://railway.app/).
-2. Railway detects the `Procfile` and `requirements.txt` automatically.
-3. Add an Environment Variable:
-   - `PORT`: `8000`
-   - `DEBUG`: `False`
-4. Railway builds and deploys your service with an automatic public HTTPS domain.
-
----
-
-### Option 3: Docker (Universal / GCP Cloud Run / Fly.io / VPS)
-
-The included multi-stage `Dockerfile` pre-seeds `db.sqlite3` with all 7,531 stations during image build for sub-second container cold-starts:
-
+#### Test the Live Deployment:
 ```bash
-# 1. Build the Docker container image
-docker build -t spotter-backend .
-
-# 2. Run container on port 8000
-docker run -d -p 8000:8000 -e DEBUG=False -e SECRET_KEY="prod-secret-key" --name spotter spotter-backend
-```
-
-Test the containerized deployment:
-```bash
-curl -X POST http://127.0.0.1:8000/api/route/ \
+curl -X POST https://your-app-name.onrender.com/api/route/ \
   -H "Content-Type: application/json" \
   -d '{"start": "Austin, TX", "finish": "Seattle, WA"}'
 ```
